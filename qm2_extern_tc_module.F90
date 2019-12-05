@@ -1036,7 +1036,7 @@ contains
     _REAL_  :: empty
     if (do_mpi) then
 
-      call MPI_Send( empty, 1, MPI_DOUBLE_PRECISION, 0, 0, newcomm, ierr )
+      call MPI_Send( empty, 1, MPI_INTEGER, 0, 0, newcomm, ierr )
 
     end if
 #endif
