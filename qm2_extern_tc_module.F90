@@ -875,6 +875,8 @@ contains
     if ( nclatoms > 0 ) then
       write(iurun, '(a)') 'pointcharges '//ptcfile
 !      write(iurun, '(a)') 'amber       yes'  ! Not supported in TeraChem 1.91
+!      NOTE(danielhollas): Support was added back in TC 1.93P,
+!      but let's keep it commented for backwards compatibility
     end if
 
     write(iurun, '(a)') 'end'
