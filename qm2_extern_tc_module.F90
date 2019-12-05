@@ -487,6 +487,12 @@ contains
        write(6,'(/, a, i0)') 'Sending nqmatoms = ', nqmatoms
        call flush(6)
     end if
+    !TODO(danielhollas): Send correct MPI tag based on do_grad
+    !if (do_grad)
+    !   mpi_tag=2
+    !else
+    !   mpi_tag=1
+    !call MPI_Send( nqmatoms, 1, MPI_INTEGER, 0, mpi_tag, newcomm, ierr )
     call MPI_Send( nqmatoms, 1, MPI_INTEGER, 0, 2, newcomm, ierr )
 
     if ( tc_nml%debug > 2 ) then
