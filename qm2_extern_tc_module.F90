@@ -25,6 +25,7 @@ module qm2_extern_tc_module
   private
   public :: get_tc_forces, tc_finalize
   logical, save :: do_mpi = .false.  ! Used in finalize subroutine
+  integer, parameter :: MPI_TAG_ENERGY = 1, MPI_TAG_GRADIENT = 2
 
   character(len=*), parameter :: module_name = "qm2_extern_tc_module"
 
@@ -455,7 +456,7 @@ contains
 
     logical,save        :: first_call=.true.
     integer             :: i, status(MPI_STATUS_SIZE)
-    integer             :: ierr
+    integer             :: ierr, run_type_tag
 
     call debug_enter_function( 'mpi_hook', module_name, tc_nml%debug )
 
@@ -483,17 +484,23 @@ contains
     end if
 
     ! Send nqmatoms and the type of each qmatom
+    ! and determine the type of calculation
+    if (do_grad) then
+       run_type_tag = MPI_TAG_GRADIENT
+    else
+       run_type_tag = MPI_TAG_ENERGY
+    end if
     if ( tc_nml%debug > 2 ) then
+       if (run_type_tag.eq.1)then
+          write(6,'(/, a, i0)') 'Sending nqmatoms = ', nqmatoms
+          write(6,'(/,a)') 'Requesting QM energy'
+       else if (run_type_tag.eq.2)then
+          write(6,'(/,a)') 'Requesting QM energy and gradients'
+       end if
        write(6,'(/, a, i0)') 'Sending nqmatoms = ', nqmatoms
        call flush(6)
     end if
-    !TODO(danielhollas): Send correct MPI tag based on do_grad
-    !if (do_grad)
-    !   mpi_tag=2
-    !else
-    !   mpi_tag=1
-    !call MPI_Send( nqmatoms, 1, MPI_INTEGER, 0, mpi_tag, newcomm, ierr )
-    call MPI_Send( nqmatoms, 1, MPI_INTEGER, 0, 2, newcomm, ierr )
+    call MPI_Send( nqmatoms, 1, MPI_INTEGER, 0, run_type_tag, newcomm, ierr )
 
     if ( tc_nml%debug > 2 ) then
        write(6,'(/,a)') 'Sending QM atom types: '
@@ -624,7 +631,7 @@ contains
 
     end if
 
-    call debug_exit_function( 'connect_to_terachem', module_name, tc_nml%debug )
+    call debug_exit_function( 'mpi_hook', module_name, tc_nml%debug )
 
   end subroutine mpi_hook
 
