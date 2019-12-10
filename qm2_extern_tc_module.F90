@@ -459,6 +459,9 @@ contains
     logical,save        :: first_call=.true.
     integer             :: i, status(MPI_STATUS_SIZE)
     integer             :: ierr, run_type_tag
+    logical             :: mpi_receive_ready
+    _REAL_              :: mpi_sleep
+    character*50        :: chsys_sleep
 
     call debug_enter_function( 'mpi_hook', module_name, tc_nml%debug )
 
@@ -560,6 +563,16 @@ contains
     ! -----------------------------------
     ! Begin receiving data from terachem
     ! -----------------------------------
+
+    ! This ugly hack prevent Amber spinning 100% CPU
+    ! when waiting for TeraChem
+    mpi_receive_ready = .false.
+    mpi_sleep = 0.05
+    write(chsys_sleep,'(A6, F10.4)')'sleep ', mpi_sleep
+    do while(.not.mpi_receive_ready)
+       call MPI_IProbe(MPI_ANY_SOURCE, MPI_ANY_TAG, newcomm, mpi_receive_ready, status, ierr)
+       call system(chsys_sleep)
+    end do
 
     ! Energy
     if ( tc_nml%debug > 2 ) then
