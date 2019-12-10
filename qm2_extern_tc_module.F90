@@ -661,7 +661,6 @@ contains
     character(len=clen) :: dbuffer(2,32)
     _REAL_          :: timer
     integer         :: ierr, i, j, irow
-    logical         :: done=.false.
 
     call debug_enter_function( 'connect_to_terachem', module_name, tc_nml%debug )
 
@@ -677,7 +676,9 @@ contains
       call flush(6)
     end if
     timer = MPI_WTIME(ierr)
-    do while (done .eqv. .false.)
+    ! This allows to retry failed MPI_LOOKUP_NAME() call
+    call MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN, ierr)
+    do
 
       call MPI_LOOKUP_NAME(trim(server_name), MPI_INFO_NULL, port_name, ierr)
       if (ierr == MPI_SUCCESS) then
@@ -685,7 +686,16 @@ contains
           write(6,'(2a)') 'Found port: ', trim(port_name)
           call flush(6)
         end if
-        done=.true.
+
+        exit
+
+      else
+
+        ! Let's wait a bit
+        ! Too many calls to MPI_LOOKUP_NAME can crash the hydra_nameserver process
+        ! TODO: Maybe we could use the sleep intrinsic call,
+        ! but not sure it is supported by all compilers
+        call system('sleep 1')
 
       end if
 
@@ -696,6 +706,9 @@ contains
       end if
 
     end do
+
+    ! Turn all MPI errors back to fatal
+    call MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_ARE_FATAL, ierr)
 
     ! ----------------------------------------
     ! Establish new communicator via port name
