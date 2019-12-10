@@ -201,11 +201,13 @@ contains
        end if
     end if
 
-    call compute_self_energy_gradient(clcoords, nclatoms, do_grad, self_energy, self_gradient)
-    if (nclatoms > 0) then
-       escf = escf - self_energy
-       if (do_grad) then
-          dxyzcl(:,:) = dxyzcl(:,:) - self_gradient(:,:)
+    if (tc_nml%mpi /= 1 ) then
+       call compute_self_energy_gradient(clcoords, nclatoms, do_grad, self_energy, self_gradient)
+       if (nclatoms > 0) then
+          escf = escf - self_energy
+          if (do_grad) then
+             dxyzcl(:,:) = dxyzcl(:,:) - self_gradient(:,:)
+          end if
        end if
     end if
 
