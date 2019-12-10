@@ -499,7 +499,6 @@ contains
     end if
     if ( tc_nml%debug > 2 ) then
        if (run_type_tag.eq.1)then
-          write(6,'(/, a, i0)') 'Sending nqmatoms = ', nqmatoms
           write(6,'(/,a)') 'Requesting QM energy'
        else if (run_type_tag.eq.2)then
           write(6,'(/,a)') 'Requesting QM energy and gradients'

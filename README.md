@@ -7,4 +7,4 @@ The initial version was taken from AmberTools19:
 Here we manage modifications for our own use, specifically:
 
 1. Bugfix for MPI interface, which is now double counting Couloumb interactions.
-2. Extension for Amber-driven REMD with multiple TC servers
+2. Various other small fixes and features, see individual commits and branches.
