@@ -38,6 +38,7 @@ module qm2_extern_tc_module
      character(len=20) :: guess
      character(len=20) :: cis
      character(len=20) :: charge_analysis
+     character(len=50) :: server_name
      _REAL_ :: threall
      _REAL_ :: convthre
      integer :: maxit
@@ -242,6 +243,7 @@ contains
     integer, intent(in) :: ntpr_default
     type(tc_nml_type), intent(out) :: tc_nml
     character(len=20):: basis, method, dftd, precision, executable, guess, cis, charge_analysis
+    character(len=50):: server_name
     _REAL_ :: threall, convthre
     integer, parameter :: maxgpus = 64
     integer :: maxit, dftgrid, ngpus, gpuids(maxgpus),  &
@@ -250,7 +252,7 @@ contains
     namelist /tc/ basis, method, dftd, precision, executable, guess, cis, charge_analysis, &
       threall, convthre, &
       maxit, dftgrid, ngpus, gpuids, cisnumstates, cistarget, &
-      mpi, ntpr, debug, dipole, use_template,&
+      mpi, ntpr, debug, dipole, use_template, server_name, &
       charge, spinmult
     integer :: i, ierr
 
@@ -278,6 +280,7 @@ contains
     debug        = 0
     dipole       = 0
     use_template = 0
+    server_name = 'terachem_port'
 
     ! These are now deprecated and should be specified in the &qmmmm namelist
     charge   = -351
@@ -342,6 +345,7 @@ contains
         tc_nml%mpi         = 0 ! Can't pick MPI if not available 
 #else
         tc_nml%mpi         = mpi
+        tc_nml%server_name = server_name
 #endif
 
     ! Need this variable so we don't call MPI_Send in the finalize subroutine
@@ -416,11 +420,12 @@ contains
           jstart = jstart + jstep
        end do
     end if
-    write(6, '(a,i1)')     '|   mpi             = ', tc_nml%mpi
     write(6, '(a,i0)')     '|   ntpr            = ', tc_nml%ntpr
     write(6, '(a,i2)')     '|   debug           = ', tc_nml%debug
     write(6, '(a,l)')      '|   dipole          = ', tc_nml%dipole
     write(6, '(a,l)')      '|   use_template    = ', tc_nml%use_template
+    write(6, '(a,i1)')     '|   mpi             = ', tc_nml%mpi
+    write(6, '(2a)')       '|   server_name     = ', tc_nml%server_name
     write(6,'(a)')         '| /'
 
   end subroutine print_namelist
@@ -654,8 +659,7 @@ contains
     logical          , intent(in) :: do_grad
     character(len=3) , intent(in) :: id
     integer          , intent(in) :: charge, spinmult
-
-    character(len=17) :: server_name="terachem_port"
+    character(len=50) :: server_name
     integer, parameter  :: clen=128 ! Length of character strings we are using
     character(255) :: port_name
     character(len=clen) :: dbuffer(2,32)
@@ -668,6 +672,7 @@ contains
     ! Look for server_name, get port name
     ! After 60 seconds, exit if not found
     ! -----------------------------------
+    server_name = trim(tc_nml%server_name)
     if ( trim(id) /= '' ) then
       server_name = trim(server_name)//'.'//trim(id)
     end if
