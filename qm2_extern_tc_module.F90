@@ -134,7 +134,7 @@ contains
 #ifdef MPI
 # ifndef MPI_1
     if (tc_nml%mpi==1 ) then ! Do mpi (forced to 0 ifndef MPI)
-      call mpi_hook( trim(tplfile), nqmatoms, qmcoords, qmtypes, nclatoms, clcoords,&
+      call mpi_hook( nqmatoms, qmcoords, qmtypes, nclatoms, clcoords,&
         tc_nml, escf, dxyzqm, dxyzcl, dipmom, qmcharges, do_grad, id, charge, spinmult )
     else
 # else
@@ -432,7 +432,7 @@ contains
 
 #if defined(MPI) && !defined(MPI_1)
   ! Perform MPI communications with terachem. Requires MPI 2.0 or above to use
-  subroutine mpi_hook( tplfile, nqmatoms, qmcoords, qmtypes, nclatoms, clcoords,&
+  subroutine mpi_hook( nqmatoms, qmcoords, qmtypes, nclatoms, clcoords,&
        tc_nml, escf, dxyzqm, dxyzcl, dipmom, qmcharges, do_grad, id, charge, spinmult )
     
     use ElementOrbitalIndex, only : elementSymbol
@@ -440,7 +440,6 @@ contains
     implicit none
     include 'mpif.h'
 
-    character(len=*), intent(in)  :: tplfile
     integer, intent(in) :: nqmatoms
     _REAL_,  intent(in) :: qmcoords(3,nqmatoms) 
     integer, intent(in) :: qmtypes(nqmatoms)
@@ -474,7 +473,7 @@ contains
     ! TeraChem needs those both for initialization and later during the MD run
     do i = 1, nqmatoms
       atom_types(i)=elementSymbol(qmtypes(i))
-   end do
+    end do
 
     ! ---------------------------------------------------
     ! Initialization: Connect to "terachem_port", set    
@@ -482,7 +481,7 @@ contains
     ! ---------------------------------------------------
     if (first_call) then 
       first_call=.false.
-      call connect_to_terachem( tplfile, tc_nml, nqmatoms, atom_types, do_grad, id, charge, spinmult )
+      call connect_to_terachem( tc_nml, nqmatoms, atom_types, do_grad, id, charge, spinmult )
     end if
 
     ! -----------------------------------------
@@ -659,12 +658,11 @@ contains
   ! (this step initializes newcomm)
   ! Send relevant namelist variables to terachem
   ! -------------------------------------------------
-  subroutine connect_to_terachem( tplfile, tc_nml, nqmatoms, atom_types, do_grad, id, charge, spinmult )
+  subroutine connect_to_terachem( tc_nml, nqmatoms, atom_types, do_grad, id, charge, spinmult )
 
     implicit none
     include 'mpif.h'
 
-    character(len=*) , intent(in) :: tplfile
     type(tc_nml_type), intent(in) :: tc_nml
     integer          , intent(in) :: nqmatoms
     character(len=2) , intent(in) :: atom_types(nqmatoms)
@@ -740,10 +738,7 @@ contains
     ! Send job information to terachem
     ! --------------------------------
     dbuffer(:,:) = ''
-    if ( tc_nml%use_template ) then
-       ! using template input file for specs of QM method
-      call read_template(tplfile, tc_nml%debug, dbuffer, irow )
-    else
+    if ( .not. tc_nml%use_template ) then
       ! specs of QM method from AMBER input file 
       irow = 1
       write(dbuffer(:,irow),'(a,/,a)') 'basis',      tc_nml%basis
@@ -769,43 +764,43 @@ contains
         irow = irow + 1
         write(dbuffer(:,irow),'(a,/,i0)') 'cistarget', tc_nml%cistarget
       end if
-    end if
 
-    ! common data provided both for template / AMBER input
-    irow = irow + 1
-    write(dbuffer(:,irow),'(a,/,i0)') 'charge', charge
-    irow = irow + 1
-    write(dbuffer(:,irow),'(a,/,i0)') 'spinmult', spinmult
-    irow = irow + 1
-    if ( do_grad ) then
-       write(dbuffer(:,irow),'(a,/,a)') 'run', 'gradient'
-    else
-       write(dbuffer(:,irow),'(a,/,a)') 'run', 'energy'
-    end if
-    irow = irow + 1
-    write(dbuffer(:,irow),'(a,/,a)') 'guess',       tc_nml%guess
-    ! This is set to 1 because this instructs terachem to skip 
-    ! calculating the self-energy of the charges
-    irow = irow + 1
-    write(dbuffer(:,irow),'(a,/,a)') 'amber', 'yes'
-    ! Write gpus
-    if ( tc_nml%ngpus > 0 ) then
-       irow = irow + 1
-       write(dbuffer(:,irow), '(a,/,9999(i3))') 'gpus      ', tc_nml%ngpus, (tc_nml%gpuids(i), i = 1, tc_nml%ngpus)
-    end if
-    ! Finish writing - send 'end'
-    irow = irow + 1
-    write(dbuffer(:,irow),'(a)') 'end', ''
+      ! common data provided both for template / AMBER input
+      irow = irow + 1
+      write(dbuffer(:,irow),'(a,/,i0)') 'charge', charge
+      irow = irow + 1
+      write(dbuffer(:,irow),'(a,/,i0)') 'spinmult', spinmult
+      irow = irow + 1
+      if ( do_grad ) then
+         write(dbuffer(:,irow),'(a,/,a)') 'run', 'gradient'
+      else
+         write(dbuffer(:,irow),'(a,/,a)') 'run', 'energy'
+      end if
+      irow = irow + 1
+      write(dbuffer(:,irow),'(a,/,a)') 'guess',       tc_nml%guess
+      ! This is set to 1 because this instructs terachem to skip 
+      ! calculating the self-energy of the charges
+      irow = irow + 1
+      write(dbuffer(:,irow),'(a,/,a)') 'amber', 'yes'
+      ! Write gpus
+      if ( tc_nml%ngpus > 0 ) then
+         irow = irow + 1
+         write(dbuffer(:,irow), '(a,/,9999(i3))') 'gpus      ', tc_nml%ngpus, (tc_nml%gpuids(i), i = 1, tc_nml%ngpus)
+      end if
+      ! Finish writing - send 'end'
+      irow = irow + 1
+      write(dbuffer(:,irow),'(a)') 'end', ''
 
-    if ( tc_nml%debug > 2 ) then
-      write(6,'(a)') '(debug) sending namelist data:'
-      do j=1, 32
-        write(6,*) trim(dbuffer(1,j)), ' = ', trim(dbuffer(2,j))
-      end do
-      call flush(6)
-    end if
+      if ( tc_nml%debug > 2 ) then
+        write(6,'(a)') '(debug) sending namelist data:'
+        do j=1, 32
+          write(6,*) trim(dbuffer(1,j)), ' = ', trim(dbuffer(2,j))
+        end do
+        call flush(6)
+      end if
 
-    call MPI_Send( dbuffer, 2*clen*size(dbuffer,2), MPI_CHARACTER, 0, 2, newcomm, ierr )
+      call MPI_Send( dbuffer, 2*clen*size(dbuffer,2), MPI_CHARACTER, 0, 2, newcomm, ierr )
+    end if
 
     ! -----------------------------------------
     ! Send nqmatoms and the type of each qmatom
@@ -1136,50 +1131,6 @@ contains
     call debug_exit_function( 'copy_template', module_name, debug )
 
   end subroutine copy_template
-
-  subroutine read_template( tplfile, debug, dbuffer, irow )
-
-    use UtilitiesModule, only: Upcase
-    implicit none
-    character(len=*), intent(in) :: tplfile
-    integer         , intent(in) :: debug
-    character(len=*), intent(out):: dbuffer(:,:)
-    integer         , intent(out):: irow
-    integer, parameter :: tplunit = 351
-    character(len=256) :: read_buffer
-    integer :: tplerr, ios, ispace
-
-    call debug_enter_function( 'read_template', module_name, debug )
-
-    dbuffer=''
-
-    open(tplunit, file=tplfile, iostat=tplerr )
-    if ( tplerr /= 0 ) then
-      call sander_bomb('read_template (qm2_extern_tc_module)', &
-        'Error opening TeraChem template file '//tplfile//' for reading', &
-        'Will quit now.')
-    end if
-
-    irow = 0
-    do
-       read (tplunit, '(a)', iostat = ios) read_buffer
-       ! End of file; stop reading
-       if (ios < 0 ) then
-         exit
-       end if
-       if ( index(Upcase(read_buffer), 'END') > 0 ) then
-          exit
-       end if
-       ispace=index(read_buffer,' ')
-       irow = irow + 1
-       write(dbuffer(:,irow), '(a,/,a)') read_buffer(1:ispace-1), trim(adjustl(read_buffer(ispace:)))
-    end do
-
-    close(tplunit)
-
-    call debug_exit_function( 'read_template', module_name, debug )
-
-  end subroutine read_template
 
   subroutine compute_self_energy_gradient(clcoords, nclatoms, do_grad, self_energy, self_gradient)
 
